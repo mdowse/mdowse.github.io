@@ -1,0 +1,470 @@
+<center lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>jQuery UI Slider - Colorpicker</title>
+    <link rel="stylesheet" href="http://code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
+    <script src="http://code.jquery.com/jquery-1.10.2.js"></script>
+    <script src="http://code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+    <script src="http://code.highcharts.com/highcharts.js"></script>
+    <script src="http://code.highcharts.com/modules/exporting.js"></script>
+    <link rel="stylesheet" href="style.css">
+<style>
+div {
+    max-width: 800px;
+}
+#o_neg, #a_neg, #b_neg, #ab_neg{
+    float: left;
+    clear: left;
+    width: 40%;
+    margin: 15px;
+}
+#o_pos, #a_pos, #b_pos, #ab_pos {
+    float: right;
+    clear: right;
+    width: 40%;
+    margin: 15px;
+}
+
+#o_neg .ui-slider-range { background: #434348; }
+#o_neg .ui-slider-handle { border-color: #434348; }
+#a_neg .ui-slider-range { background: #2b908f; }
+#a_neg .ui-slider-handle { border-color: #2b908f; }
+#b_neg .ui-slider-range { background: #f15c80; }
+#b_neg .ui-slider-handle { border-color: #f15c80; }
+#ab_neg .ui-slider-range { background: #8085e9; }
+#ab_neg .ui-slider-handle { border-color: #8085e9; }
+
+#o_pos .ui-slider-range { background: #7cb5ec; }
+#o_pos .ui-slider-handle { border-color: #7cb5ec; }
+#a_pos .ui-slider-range { background: #90ed7d; }
+#a_pos .ui-slider-handle { border-color: #90ed7d; }
+#b_pos .ui-slider-range { background: #f7a35c; }
+#b_pos .ui-slider-handle { border-color: #f7a35c; }
+#ab_pos .ui-slider-range { background: #e4d354; }
+#ab_pos .ui-slider-handle { border-color: #e4d354; }
+
+    </style>
+    <script>
+var groups = ['O-', 'A-', 'B-', 'AB-',
+              'O+', 'A+', 'B+', 'AB+'];
+var typeToPopulation = {
+    "O-": 0.08,
+    'A-': 0.05,
+    'B-': 0.02,
+    'AB-': 0.01,
+    'O+': 0.47,
+    'A+': 0.26,
+    'B+': 0.09,
+    'AB+': 0.02
+};
+var typeToQuantity = {
+    "O-": 250,
+    'A-': 250,
+    'B-': 250,
+    'AB-': 250,
+    'O+': 250,
+    'A+': 250,
+    'B+': 250,
+    'AB+': 250
+};
+
+var typeToDonors = {
+    "O-": ["O-"],
+    'A-': ["O-", "A-"],
+    'B-': ["O-", "B-"],
+    'AB-': ["O-", "A-", "B-", "AB-"],
+    'O+': ["O-", "O+"],
+    'A+': ["O-", "A-", "O+", "A+"],
+    'B+': ["O-", "B-", "O+", "B+"],
+    'AB+': ['O-', 'A-', 'B-', 'AB-', 'O+', 'A+', 'B+', 'AB+']
+};
+
+var typeToRecipients = {
+    "O-": ['O-', 'A-', 'B-', 'AB-', 'O+', 'A+', 'B+', 'AB+'],
+    'A-': ['A-', 'AB-', 'A+', 'AB+'],
+    'B-': ['B-', 'AB-', 'B+', 'AB+'],
+    'AB-': ['AB-', 'AB+'],
+    'O+': ['O+', 'A+', 'B+', 'AB+'],
+    'A+': ['A+', 'AB+'],
+    'B+': ['B+', 'AB+'],
+    'AB+': ['AB+']
+};
+
+function OLDbalanceTypes(dtypToPints) {
+    var rtypToDtypToPints = {};
+    for (var i=0; i < groups.length; i++) {
+        var rtyp = groups[i];
+        rtypToDtypToPints[rtyp] = {};
+        for (var j=0; j < typeToDonors[rtyp].length; j++) {
+            var dtyp = typeToDonors[rtyp][j];
+            if (dtyp != rtyp) {
+                rtypToDtypToPints[rtyp][dtyp] = dtypToPints[rtyp] * 0.2;
+            } else {
+                rtypToDtypToPints[rtyp][dtyp] = dtypToPints[dtyp];
+            }
+        }
+    }
+    return rtypToDtypToPints;
+}
+
+// Allocate all pints to initial recipient groups, then repeatedly
+// swap to optimize.
+function balanceTypes(dtypToPints) {
+    var MAX_SWAPS = 1000;
+    var rtypToDtypToPints = {};
+
+    // Do an initial allocation. All dtyps donate only to themselves.
+    for (var i=0; i < groups.length; i++) {
+        var rtyp = groups[i];
+        rtypToDtypToPints[rtyp] = {};
+        for (var j=0; j < groups.length; j++) {
+            var dtyp = groups[j];
+            if (dtyp != rtyp) {
+                rtypToDtypToPints[rtyp][dtyp] = 0.0;
+            } else {
+                rtypToDtypToPints[rtyp][dtyp] = dtypToPints[dtyp];
+            }
+        }
+    }
+
+    for (var i=0; i < MAX_SWAPS; i++) {
+        var keepGoing = balanceOnce(rtypToDtypToPints);
+        if (keepGoing == false) {
+            break;
+        }
+    }
+
+    return rtypToDtypToPints;
+}
+
+//Try to balance two recipient types given:
+// - their blood types
+// - the quantity of existing blood we don't want to / can't distribute
+// - the quantity of blood we can move between the two
+//
+// rtyp1: recipient type 1
+// rtyp2: recipient type 2
+// rtyp1Base: non-negotiable recipient 1 pints
+// rtyp2Base: non-negotiable recipient 2 pints
+// excess: pints we have to play with moving from one to th other
+//
+// Return: rtyp1Pints (all the rest goes to rtyp2)
+function balanceTwoRTypes(rtyp1, rtyp2, rtyp1Base, rtyp2Base, excess) {
+    var ideal1 = typeToPopulation[rtyp1],
+        ideal2 = typeToPopulation[rtyp2];
+    var result = 0.0;
+
+    if (((rtyp1Base + excess) / ideal1) < (rtyp2Base / ideal2)) {
+        // balance as best we can - give everything to type 1
+        result = excess;
+    } else if ((rtyp1Base / ideal1) > ((rtyp2Base + excess) / ideal2)) {
+        // balance as best we can - give everything to type 2
+        result = 0.0;
+    } else {
+        // balance evenly, splitting between the two
+        var num = (ideal1 * (rtyp2Base + excess)) - ideal2 * rtyp1Base;
+        var den = ideal1 + ideal2;
+        result = num / den;
+    }
+
+    var FLOAT_ACCURACY = 0.0000001;
+
+    if ((result < 0) && (result > -FLOAT_ACCURACY)) {
+        result = 0.0;
+    } else if ((result > 0) && (result < FLOAT_ACCURACY)) {
+        result = 0.0;
+    } else if ((result > excess) && (result < excess + FLOAT_ACCURACY)) {
+        result = excess;
+    } else if ((result < excess) && (result > excess - FLOAT_ACCURACY)) {
+        result = excess;
+    }
+
+    return result;
+}
+
+// Attempt to move a blood from one recipient to another in a way that either
+// moves as much as possible from one to the othe, or or that guarantees that
+// both are "balanced", and the spreadiness isn't getting worse.
+function balanceOnce(rtypToDtypToPints) {
+
+    // useful cache of receipient type to quantity
+    var rtypToPints = {};
+    for (var i=0; i < groups.length; i++) {
+        rtypToPints[groups[i]] = 0.0;
+        for (var j=0; j < groups.length; j++) {
+            rtypToPints[groups[i]] += rtypToDtypToPints[groups[i]][groups[j]];
+        }
+    }
+
+    var MAX_EXCESS_SHIFT = 100;
+
+    // eventually stop if we're not improving enough
+    var bestSpreadiness = -0.01;
+    var bestInfo = null;
+
+    // for every unique pair of recipient types..
+    for (var i=0; i < groups.length; i++) {
+        var rtyp1 = groups[i];
+        for (var j=i+1; j < groups.length; j++) {
+            var rtyp2 = groups[j];
+            // try to rebalance this pair
+
+            // find the dtyps that we can freely move between these two
+            // recipients.
+            var validDtyps = [];
+            var invalidDtyps = [];
+            for (var k=0; k < groups.length; k++) {
+                var dtyp = groups[k];
+                //console.log("is dtyp " + dtyp + " in " + typeToDonors[rtyp1].toString() + "? " + (dtyp in typeToDonors[rtyp1]));
+                //console.log("is dtyp " + dtyp + " in " + typeToDonors[rtyp2].toString() + "? " + (dtyp in typeToDonors[rtyp2]));
+                if ((typeToDonors[rtyp1].indexOf(dtyp) > -1) &&
+                    (typeToDonors[rtyp2].indexOf(dtyp) > -1)) {
+                    validDtyps.push(dtyp);
+                } else {
+                    invalidDtyps.push(dtyp);
+                }
+            }
+
+            // find the quantity of rtyp1 and rtyp2 blood we can/can't move
+            var rtyp1Base = 0.0, rtyp2Base = 0.0;
+            var rtyp1Excess = 0.0, rtyp2Excess = 0.0;
+
+            for (var k=0; k < invalidDtyps.length; k++) {
+                var dtyp = invalidDtyps[k];
+                rtyp1Base += rtypToDtypToPints[rtyp1][dtyp];
+                rtyp2Base += rtypToDtypToPints[rtyp2][dtyp];
+            }
+            for (var k=0; k < validDtyps.length; k++) {
+                var dtyp = validDtyps[k];
+                rtyp1Excess += rtypToDtypToPints[rtyp1][dtyp];
+                rtyp2Excess += rtypToDtypToPints[rtyp2][dtyp];
+            }
+
+            var validDtypToExcess = {};
+            var totalExcess = 0.0;
+            for (var k=0; k < validDtyps.length; k++) {
+                var dtyp = validDtyps[k];
+                var pints = rtypToDtypToPints[rtyp1][dtyp] + rtypToDtypToPints[rtyp2][dtyp];
+                validDtypToExcess[dtyp] = pints;
+                totalExcess += pints;
+            }
+
+            //console.log("trying to rebalance " + rtyp1 + " and " + rtyp2 + ". validdtyps=" + validDtyps.toString() +
+            //            ". 1base="+rtyp1Base+";1excess="+rtyp1Excess+"; totalExcess="+totalExcess);
+
+            // balance it between rtyp1 and rtyp2
+            var excessFor1 = balanceTwoRTypes(rtyp1, rtyp2, rtyp1Base, rtyp2Base, totalExcess);
+            var excessFor2 = totalExcess - excessFor1;
+
+            if (excessFor1 > rtyp1Excess + MAX_EXCESS_SHIFT) {
+                // print("%s -> %s" % (excess_for_1, rtyp1_excess + MAX_EXCESS_SHIFT))
+                excessFor1 = rtyp1Excess + MAX_EXCESS_SHIFT;
+                excessFor2 = rtyp2Excess - MAX_EXCESS_SHIFT;
+            } else if (excessFor2 > rtyp2Excess + MAX_EXCESS_SHIFT) {
+                //print("%s -> %s" % (excess_for_2, rtyp2_excess + MAX_EXCESS_SHIFT))
+                excessFor1 = rtyp1Excess - MAX_EXCESS_SHIFT;
+                excessFor2 = rtyp2Excess + MAX_EXCESS_SHIFT;
+            }
+
+            // should equal abs(rtyp2Excess - excessFor2)
+            var excessShift = Math.abs(rtyp1Excess - excessFor1);
+
+            // use a local value, not a global one. the maths says
+            // that minimizing this local value should also minimize the global variance.
+            var spreadiness = -excessShift;
+
+            if ((spreadiness != 0) && (spreadiness < bestSpreadiness)) {
+                bestSpreadiness = spreadiness;
+                bestInfo = [rtyp1, rtyp2, validDtypToExcess, excessFor1, excessFor2];
+            }
+        }
+    }
+
+    // if we found no improvements at all, bail out.
+    if (bestInfo == null) {
+        return false;
+    }
+
+    var rtyp1 = bestInfo[0],
+        rtyp2 = bestInfo[1],
+        validDtypToExcess = bestInfo[2],
+        excessFor1 = bestInfo[3],
+        excessFor2 = bestInfo[4];
+
+    // distribute the validDtypToExcess between rtyp1 and ryp2
+    // based on the ratio of excessFor1 and excessFor2
+    var totalExcess = excessFor1 + excessFor2;
+    var fractionExcess1 = excessFor1 / totalExcess;
+    var fractionExcess2 = excessFor2 / totalExcess;
+
+    //console.log("bestSpreadiness is " + bestSpreadiness + ". move between " + rtyp1 + " and " + rtyp2 +
+    //            ". totalExcess is " + totalExcess + ". fraction1=" + fractionExcess1 + ", fraction2=" + fractionExcess2);
+    //console.log(validDtypToExcess);
+
+    // update rtypToDtypToPints in place. tut, tut.
+    for (var dtyp in validDtypToExcess) {
+        var dtypExcess = validDtypToExcess[dtyp];
+        //console.log("moving some " + dtyp + " blood between " + rtyp1 + " and " + rtyp2);
+        rtypToDtypToPints[rtyp1][dtyp] = dtypExcess * fractionExcess1;
+        rtypToDtypToPints[rtyp2][dtyp] = dtypExcess * fractionExcess2;
+    }
+
+    return true;
+}
+
+function refreshChart() {
+    dtypToPPP = {
+        "O-": $("#o_neg").slider("value"),
+        'A-': $("#a_neg").slider("value"),
+        'B-': $("#b_neg").slider("value"),
+        'AB-': $("#ab_neg").slider("value"),
+        'O+': $("#o_pos").slider("value"),
+        'A+': $("#a_pos").slider("value"),
+        'B+': $("#b_pos").slider("value"),
+        'AB+': $("#ab_pos").slider("value")
+    };
+    dtypToPints = {};
+    for (var i=0; i < groups.length; i++) {
+        var dtyp = groups[i];
+        dtypToPints[dtyp] = dtypToPPP[dtyp] * typeToPopulation[dtyp];
+    }
+    var rtypToDtypToPints = balanceTypes(dtypToPints);
+    options.series = makeSeries(rtypToDtypToPints);
+    $('#container').highcharts(options);
+}
+
+function makeSeries(rtypToDtypToPints) {
+    var widths = [];
+    var sumX = 0.0;
+    var rtypToDtypToPPP = {};
+    for (var i=0; i < groups.length; i++) {
+        var rtyp = groups[i];
+        var rtypPop = typeToPopulation[rtyp];
+        widths[i] = rtypPop * 100;
+        sumX += widths[i];
+        rtypToDtypToPPP[rtyp] = {};
+        for (var j=0; j < groups.length; j++) {
+            var dtyp = groups[j];
+            var dtypPop = typeToPopulation[dtyp];
+            if (dtyp in rtypToDtypToPints) {
+                rtypToDtypToPPP[rtyp][dtyp] = rtypToDtypToPints[rtyp][dtyp] / rtypPop;
+                // this shouldn't be right.. :(
+                //rtypToDtypToPPP[rtyp][dtyp] = rtypToDtypToPints[rtyp][dtyp] / dtypPop;
+            } else {
+                rtypToDtypToPPP[rtyp][dtyp] = 0.0;
+            }
+        }
+    }
+    var gap = sumX / groups.length * 0.2;
+
+    var startX = [];
+    var endX = [];
+    var midX = [];
+
+    var x = 0.0;
+    for (var i = 0; i < groups.length; i++) {
+        startX[i] = x;
+        endX[i] = x + widths[i];
+        midX[i] = (startX[i] + endX[i]) / 2.0;
+        x += widths[i] + gap;
+    }
+
+    var allSeries = []
+    for (var i = 0; i < groups.length; i++) {
+        var dtyp = groups[i];
+        var dtypData = [];
+        for (var j = 0; j < groups.length; j++) {
+            var rtyp = groups[j];
+            var yForJ = rtypToDtypToPPP[rtyp][dtyp];
+            var newDataElems = [
+                [startX[j], 0],
+                [startX[j]+0.001, yForJ],
+                [endX[j], yForJ],
+                [endX[j]+0.001, 0]];
+            Array.prototype.push.apply(dtypData, newDataElems);
+        }
+        allSeries[i] = {
+            name: groups[i],
+            data: dtypData,
+        };
+    }
+    return allSeries;
+}
+var options = {
+    colors: ['#434348', '#2b908f', '#f15c80', '#8085e9',
+             '#7cb5ec', '#90ed7d', '#f7a35c', '#e4d354',
+             '#f45b5b', '#91e8e1'],
+    chart: {
+        type: 'area',
+        renderTo: 'container'
+    },
+    title: {
+        text: "Blood availability per person"
+    },
+    xAxis: {
+        tickLength: 0,
+        labels: { enabled: false}
+    },
+    yAxis: {
+        min: 0,
+        max: 1000,
+        title: { enabled: false}
+    },
+    plotOptions: {
+        area: {
+            animation: false,
+            stacking: 'normal',
+            marker: {
+                enabled: false,
+                states: {
+                    hover: { enabled: false }
+                }
+            }
+        }
+    },
+    tooltip: {
+        followPointer: true,
+        useHTML: true,
+        headerFormat: '<span style="color: {series.color}">{series.name}</span>: ',
+        pointFormat: '<span>{series.options.w} x {series.options.h}</span>'
+    },
+    series: []
+};
+
+$(function() {
+    $( "#o_neg, #a_neg, #b_neg, #ab_neg, #o_pos, #a_pos, #b_pos, #ab_pos").slider({
+        orientation: "horizontal",
+        range: "min",
+        max: 1000,
+        value: 250,
+        slide: refreshChart,
+        change: refreshChart
+    });
+    $( "#o_neg" ).slider( "value", 200 );
+    $( "#a_neg" ).slider( "value", 140 );
+    $( "#b_neg" ).slider( "value", 300 );
+    $( "#ab_neg" ).slider( "value", 250 );
+    $( "#o_pos" ).slider( "value", 250 );
+    $( "#a_pos" ).slider( "value", 250 );
+    $( "#b_pos" ).slider( "value", 100 );
+    $( "#ab_pos" ).slider( "value", 250 );
+    refreshChart();
+});
+    </script>
+</head>
+<div id="container"></div>
+<div>
+    <div id="o_pos"></div>
+    <div id="o_neg"></div>
+    <div id="a_pos"></div>
+    <div id="a_neg"></div>
+    <div id="b_pos"></div>
+    <div id="b_neg"></div>
+    <div id="ab_pos"></div>
+    <div id="ab_neg"></div>
+</div>
+<center></center><h1>Blood donation per person</h1>
+</center>
+
+</body>
+</html>
