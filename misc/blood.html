@@ -1,27 +1,23 @@
 <center lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Blood Group Donation Visualizer</title>
+    <title>Donor vs Recipient Blood Group Visualizer</title>
     <link rel="stylesheet" href="http://code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
     <script src="http://code.jquery.com/jquery-1.10.2.js"></script>
     <script src="http://code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
     <script src="http://code.highcharts.com/highcharts.js"></script>
-    <script src="http://code.highcharts.com/modules/exporting.js"></script>
     <link rel="stylesheet" href="style.css">
 <style>
-div {
-    max-width: 800px;
-}
 #o_neg, #a_neg, #b_neg, #o_pos{
     float: left;
     clear: left;
-    width: 40%;
+    width: 45%;
     margin: 15px;
 }
 #ab_neg, #a_pos, #b_pos, #ab_pos {
     float: right;
     clear: right;
-    width: 40%;
+    width: 45%;
     margin: 15px;
 }
 
@@ -351,7 +347,7 @@ var options = {
         renderTo: 'container'
     },
     title: {
-        text: "Blood availability per person"
+        text: "Blood availability per person (by blood group)"
     },
     xAxis: {
         tickLength: 0,
@@ -375,10 +371,7 @@ var options = {
         }
     },
     tooltip: {
-        followPointer: true,
-        useHTML: true,
-        headerFormat: '<span style="color: {series.color}">{series.name}</span>: ',
-        pointFormat: '<span>{series.options.w} x {series.options.h}</span>'
+        enabled: false
     },
     series: []
 };
@@ -404,7 +397,11 @@ $(function() {
 });
     </script>
 </head>
+<h1>Donor vs Recipient Blood Group Visualizer</h1>
 <div id="container"></div>
+<p>
+<h3>Blood donations per person (by blood group)</h3>
+</p>
 <div>
     <div id="ab_neg"></div>
     <div id="o_neg"></div>
@@ -416,8 +413,25 @@ $(function() {
     <div id="o_pos"></div>
 </div>
 <p>
-<h1>Blood donations per person</h1>
+<h3>Overview</h3>
 </p>
-
+    <div align="left">
+    <p>
+    <ul>
+    <li> Play around with the sliders to control the blood donation rate for each of the eight blood groups.
+    </li>
+    <li>The chart will then try to balance the donor blood evenly across all recipient groups.</li>
+    <li>Here's what the chart is showing you:
+        <ul>
+            <li>The eight colours show the eight donor blood groups.</li>
+            <li>The eight, variable-width bars show the eight recipient blood groups.</li>
+            <li>The width of each bar (X-axis) indicates the frequency of the blood group in the population.</li>
+            <li>The height (Y-axis) shows blood availability rate per person, in that recipient blood group.</li>
+            <li>Area denotes quantity of blood available.
+        </ul>
+    </li>
+    <li>I use Irish blood group frequencies. (O-: 8%, A-: 5%, B-: 2%, O+: 47%, AB-: 1%, A+:26%, B+:9%, AB+:2%)</li>
+</ul>
+</div>
 </body>
 </html>
