@@ -12,13 +12,13 @@
 div {
     max-width: 800px;
 }
-#o_neg, #a_neg, #b_neg, #ab_neg{
+#o_neg, #a_neg, #b_neg, #o_pos{
     float: left;
     clear: left;
     width: 40%;
     margin: 15px;
 }
-#o_pos, #a_pos, #b_pos, #ab_pos {
+#ab_neg, #a_pos, #b_pos, #ab_pos {
     float: right;
     clear: right;
     width: 40%;
@@ -31,11 +31,11 @@ div {
 #a_neg .ui-slider-handle { border-color: #2b908f; }
 #b_neg .ui-slider-range { background: #f15c80; }
 #b_neg .ui-slider-handle { border-color: #f15c80; }
-#ab_neg .ui-slider-range { background: #8085e9; }
-#ab_neg .ui-slider-handle { border-color: #8085e9; }
+#ab_neg .ui-slider-range { background: #7cb5ec; }
+#ab_neg .ui-slider-handle { border-color: #7cb5ec; }
 
-#o_pos .ui-slider-range { background: #7cb5ec; }
-#o_pos .ui-slider-handle { border-color: #7cb5ec; }
+#o_pos .ui-slider-range { background: #8085e9; }
+#o_pos .ui-slider-handle { border-color: #8085e9; }
 #a_pos .ui-slider-range { background: #90ed7d; }
 #a_pos .ui-slider-handle { border-color: #90ed7d; }
 #b_pos .ui-slider-range { background: #f7a35c; }
@@ -45,8 +45,8 @@ div {
 
     </style>
     <script>
-var groups = ['O-', 'A-', 'B-', 'AB-',
-              'O+', 'A+', 'B+', 'AB+'];
+var groups = ['O-', 'A-', 'B-', 'O+',
+              'AB-', 'A+', 'B+', 'AB+'];
 var typeToPopulation = {
     "O-": 0.08,
     'A-': 0.05,
@@ -56,16 +56,6 @@ var typeToPopulation = {
     'A+': 0.26,
     'B+': 0.09,
     'AB+': 0.02
-};
-var typeToQuantity = {
-    "O-": 250,
-    'A-': 250,
-    'B-': 250,
-    'AB-': 250,
-    'O+': 250,
-    'A+': 250,
-    'B+': 250,
-    'AB+': 250
 };
 
 var typeToDonors = {
@@ -78,34 +68,6 @@ var typeToDonors = {
     'B+': ["O-", "B-", "O+", "B+"],
     'AB+': ['O-', 'A-', 'B-', 'AB-', 'O+', 'A+', 'B+', 'AB+']
 };
-
-var typeToRecipients = {
-    "O-": ['O-', 'A-', 'B-', 'AB-', 'O+', 'A+', 'B+', 'AB+'],
-    'A-': ['A-', 'AB-', 'A+', 'AB+'],
-    'B-': ['B-', 'AB-', 'B+', 'AB+'],
-    'AB-': ['AB-', 'AB+'],
-    'O+': ['O+', 'A+', 'B+', 'AB+'],
-    'A+': ['A+', 'AB+'],
-    'B+': ['B+', 'AB+'],
-    'AB+': ['AB+']
-};
-
-function OLDbalanceTypes(dtypToPints) {
-    var rtypToDtypToPints = {};
-    for (var i=0; i < groups.length; i++) {
-        var rtyp = groups[i];
-        rtypToDtypToPints[rtyp] = {};
-        for (var j=0; j < typeToDonors[rtyp].length; j++) {
-            var dtyp = typeToDonors[rtyp][j];
-            if (dtyp != rtyp) {
-                rtypToDtypToPints[rtyp][dtyp] = dtypToPints[rtyp] * 0.2;
-            } else {
-                rtypToDtypToPints[rtyp][dtyp] = dtypToPints[dtyp];
-            }
-        }
-    }
-    return rtypToDtypToPints;
-}
 
 // Allocate all pints to initial recipient groups, then repeatedly
 // swap to optimize.
@@ -215,8 +177,6 @@ function balanceOnce(rtypToDtypToPints) {
             var invalidDtyps = [];
             for (var k=0; k < groups.length; k++) {
                 var dtyp = groups[k];
-                //console.log("is dtyp " + dtyp + " in " + typeToDonors[rtyp1].toString() + "? " + (dtyp in typeToDonors[rtyp1]));
-                //console.log("is dtyp " + dtyp + " in " + typeToDonors[rtyp2].toString() + "? " + (dtyp in typeToDonors[rtyp2]));
                 if ((typeToDonors[rtyp1].indexOf(dtyp) > -1) &&
                     (typeToDonors[rtyp2].indexOf(dtyp) > -1)) {
                     validDtyps.push(dtyp);
@@ -248,9 +208,6 @@ function balanceOnce(rtypToDtypToPints) {
                 validDtypToExcess[dtyp] = pints;
                 totalExcess += pints;
             }
-
-            //console.log("trying to rebalance " + rtyp1 + " and " + rtyp2 + ". validdtyps=" + validDtyps.toString() +
-            //            ". 1base="+rtyp1Base+";1excess="+rtyp1Excess+"; totalExcess="+totalExcess);
 
             // balance it between rtyp1 and rtyp2
             var excessFor1 = balanceTwoRTypes(rtyp1, rtyp2, rtyp1Base, rtyp2Base, totalExcess);
@@ -297,14 +254,9 @@ function balanceOnce(rtypToDtypToPints) {
     var fractionExcess1 = excessFor1 / totalExcess;
     var fractionExcess2 = excessFor2 / totalExcess;
 
-    //console.log("bestSpreadiness is " + bestSpreadiness + ". move between " + rtyp1 + " and " + rtyp2 +
-    //            ". totalExcess is " + totalExcess + ". fraction1=" + fractionExcess1 + ", fraction2=" + fractionExcess2);
-    //console.log(validDtypToExcess);
-
     // update rtypToDtypToPints in place. tut, tut.
     for (var dtyp in validDtypToExcess) {
         var dtypExcess = validDtypToExcess[dtyp];
-        //console.log("moving some " + dtyp + " blood between " + rtyp1 + " and " + rtyp2);
         rtypToDtypToPints[rtyp1][dtyp] = dtypExcess * fractionExcess1;
         rtypToDtypToPints[rtyp2][dtyp] = dtypExcess * fractionExcess2;
     }
@@ -378,9 +330,9 @@ function makeSeries(rtypToDtypToPints) {
             var yForJ = rtypToDtypToPPP[rtyp][dtyp];
             var newDataElems = [
                 [startX[j], 0],
-                [startX[j]+0.001, yForJ],
+                [startX[j]+0.0001, yForJ],
                 [endX[j], yForJ],
-                [endX[j]+0.001, 0]];
+                [endX[j]+0.0001, 0]];
             Array.prototype.push.apply(dtypData, newDataElems);
         }
         allSeries[i] = {
@@ -454,17 +406,18 @@ $(function() {
 </head>
 <div id="container"></div>
 <div>
-    <div id="o_pos"></div>
+    <div id="ab_neg"></div>
     <div id="o_neg"></div>
     <div id="a_pos"></div>
     <div id="a_neg"></div>
     <div id="b_pos"></div>
     <div id="b_neg"></div>
     <div id="ab_pos"></div>
-    <div id="ab_neg"></div>
+    <div id="o_pos"></div>
 </div>
-<center></center><h1>Blood donations per person</h1>
-</center>
+<p>
+<h1>Blood donations per person</h1>
+</p>
 
 </body>
 </html>
